@@ -1,6 +1,7 @@
 from Shapes3D import *
 from Primitives3D import *
-
+from Utilities2D import *
+from Beam3D import CCW2D
 
 class BiPolygonCut(object):
 	def __init__(self):
@@ -160,25 +161,193 @@ def cutWithSegment(cuts, A, B):
 		cuts.pop()
 
 def cutHorizontally(cuts, A, w, h):
-	P1 = Point3D(A.x-10, A.y+h, 0)
-	P2 = Point3D(A.x+w, A.y+h, 0)
+	P1 = Point3D(A.x-2*w, A.y+h, 0)
+	P2 = Point3D(A.x+2*w, A.y+h, 0)
 	cutWithSegment(cuts, P1, P2)
 	#The polygons that need to be translated
 	#are the ones contained within the upper cut
 	#They need to be translated to the right and down
-	translation = Matrix4([1, 0, 0, w/2, 0, 1, 0, -h, 0, 0, 1, 0, 0, 0, 0, 1])
+	translation = Matrix4([ 1, 0, 0, w/2, 
+							0, 1, 0, -h, 
+							0, 0, 1, 0, 
+							0, 0, 0, 1 ])
 	#Now add all of the cuts that are inside the top half
 	bottomY = A.y + h
 	topY = A.y + h*2
-	for i in range(0, len(cuts)):
+	for poly in cuts:
 		inside = True
-		poly = cuts[i]
-		for k in range(0, len(poly.points)):
-			if poly.points[k].y > (topY + EPS) or poly.points[k].y < (bottomY - EPS):
+		for P in poly.points:
+			if P.y > (topY + EPS) or P.y < (bottomY - EPS):
 				#print "Polygon %i point %i is at Y location %g outside of <%g, %g>\n\n"%(i, k, poly.points[k].y, bottomY, topY)
 				inside = False
 				break
 		if inside:
-			cuts[i].transform = translation * cuts[i].transform
-			cuts[i].points = [translation*P for P in cuts[i].points]
+			poly.transform = translation * poly.transform
+			poly.points = [translation*P for P in poly.points]
+
+def cutVertically(cuts, A, w, h):
+	P1 = Point3D(A.x+w, A.y-2*h, 0)
+	P2 = Point3D(A.x+w, A.y+2*h, 0)
+	cutWithSegment(cuts, P1, P2)
+	#The polygons that need to be translated
+	#are the ones contained within the right cut
+	#They need to be translated to the left and up
+	translation = Matrix4([ 1, 0, 0, -w, 
+							0, 1, 0, h/2, 
+							0, 0, 1, 0, 
+							0, 0, 0, 1 ])
+	#Now add all of the cuts that are inside the right half
+	leftX = A.x + w
+	rightX = A.x + w*2
+	for poly in cuts:
+		inside = True
+		for P in poly.points
+			if P.x > (rightX+EPS) or P.x < (leftX-EPS):
+				#print "Polygon %i point %i is at Y location %g outside of <%g, %g>\n\n"%(i, k, poly->points[k].y, bottomY, topY)
+				inside = False
+				break
+		if inside:
+			poly.transform = translation * poly.transform
+			poly.points = [translation*P for P in poly.points]
+
+#This function cuts the rectangle in half until width < 2*height && height < 2*width
+#Point A is the bottom left corner
+#Returns the new width and height of the rectangle
+#NOTE: This function assumes that the rectangles are axis-aligned
+def cutRectangleToCorrectProportions(cuts, A, width, height):
+	[w, h] = [width, height]
+	while h > 2*w:
+		#Make a horizontal cut to cut the polygon in half
+		w = w*2.0
+		h = h/2.0
+		cutHorizontally(cuts, A, w, h)
+	while w > 2*h:
+		w = w/2.0
+		h = h*2.0
+		cutVertically(cuts, A, w, h)
+	return [w, h]
+
+#Fill the list "inside" with pointers to all of the cuts that are inside
+#of the triangle ABC
+#Allow some numerical tolerance for making this call
+def getCutsInsideTriangle(cuts, A, B, C, inside):
+	#Make sure points are in clockwise order
+	if CCW2D(A, B, C) < 1):
+		temp = A
+		A = C
+		C = temp
+	for poly in cuts:
+		isInside = True
+		for P in poly.points:
+			CLOSENESS_EPS = 1 #TODO: Tweak this parameter
+			isInside = pointInsideTriangle2D(A, B, C, P, CLOSENESS_EPS)
+			if not isInside:
+				break
+		if isInside:
+			inside.append(poly)
+
+def rectRotate90CCW(cuts, rectCorner, rectw):
+	#Rotate the polygon so that this is the case
+	translation = Matrix4([ 1, 0, 0, rectCorner.x,
+							0, 1, 0, rectCorner.y,
+							0, 0, 1, 0,
+							0, 0, 0, 1 ])
+	#Rotate it 90 degrees about the lower left point and then slide it back 
+	#to the right
+	R = Matrix4([0, -1, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1] )
+	finalTrans = Matrix4([  1, 0, 0, rectw, 
+							0, 1, 0, 0, 
+							0, 0, 1, 0, 
+							0, 0, 0, 1] )
+	transformation = finalTrans*(translation*(R*translation.Inverse()))
+	for i in range(0, len(cuts)):
+		cuts[i].transform = transformation*cuts[i].transform
+		cuts[i].points = [transformation*P for P in cuts[i].points]
+
+#Use the "escalator method" to cut rectangles into rectangles
+#This function assumes that both rectangles are axis-aligned and share the lower left corner
+#at "rectCorner".  It also *very importantly* assumes that rect1w < 2*rect1h, rect1h < 2*rect1w,
+#and rect2w < 2*rect2h and rect2h < 2*rect2w
+def cutRectangleIntoRectangle(cuts, rectCorner, rect1w, rect1h, rect2w, rect2h, cutPoints):
+	if rect1w > 2*rect1h or rect1h > 2*rect1w or rect2w > 2*rect2h or rect2h > 2*rect2w:
+		print "ERROR: Rectangles do not have the correct width/height ratio to cut one into the other"
+		return
+	needToRotate = False #Do we need to rotate the polygon back 90 degrees CCW at the end
+	if rect2h > rect2w:
+		#Want the long side of the target polygon to be its width
+		temp = rect2h
+		rect2h = rect2w
+		rect2w = temp
+		needToRotate = True
+	if rect1h < rect1w:
+		#Want the long side of the original polygon to be its height
+		temp = rect1h
+		rect1h = rect1w
+		rect1w = temp
+		rectRotate90CCW(cuts, rectCorner, rect1w)
+
+	#Now actually make the two cuts and move the triangles down
+	#STEP 1: Come up with points that represent the boundaries of the rectangles
+	#and the intersections between the rectangles
+	A = Point3D(rectCorner.x, rectCorner.y, 0)
+	B = Point3D(A.x, A.y+rect1h, 0)
+	C = Point3D(B.x+rect1w, B.y, 0)
+	D = Point3D(C.x, A.y, 0)
+	E = Point3D(A.x, A.y+rect2h, 0)
+	F = Point3D(E.x+rect1w, E.y, 0)
+	G = Point3D(E.x+rect2w, E.y, 0)
+	H = Point3D(A.x+rect2w, A.y, 0)
+	intersection = intersectSegments2D(B, H, E, F, True)
+	if not intersection:
+		print "ERROR: Unable to find point 'I' cutting rectangle into another rectangle"
+		return
+	I = Point3D(intersection.x, intersection.y, 0)
+	intersection = intersectSegments(B, H, C, D, True)
+	if not intersection:
+		print "ERROR: Unable to find point 'J' cutting rectangle into another rectangle"
+		return
+	J = Point3D(intersection.x, intersection.y, 0)
+	for P in [A, B, C, D, E, F, G, H, I, J]:
+		cutPoints.append(P)
+
+	#STEP 2: Cut out the big triangle and the little triangle
+	vHI = I - H;
+	seg1P = Point3D(I.x+vHI.x, I.y+vHI.y, 0)
+	seg2P = H
+	cutWithSegment(cuts, seg1P, seg2P)
+
+	PLVector vGE = E - G
+	seg1P = Point3D(E.x+vGE.x, E.y, 0)
+	seg2P = G
+	cutWithSegment(cuts, seg1P, seg2P)
+	
+	#STEP 3: Move big triangle and little triangle
+	insideBigTriangle = []
+	getCutsInsideTriangle(cuts, B, C, J, insideBigTriangle)
+	translation = Matrix4([ 1, 0, 0, rect2w-rect1w,
+							0, 1, 0, -(J.y-D.y),
+							0, 0, 1, 0,
+							0, 0, 0, 1])
+
+	for poly in insideBigTriangle:
+		poly.transform = translation*poly.transform
+		poly.points = [translation*P for P in poly.points]
+
+	insideLittleTriangle = []
+	getCutsInsideTriangle(cuts, E, B, I, insideLittleTriangle)
+	translation = Matrix4([ 1, 0, 0, J.x-B.x,
+							0, 1, 0, J.y-B.y,
+							0, 0, 1, 0,
+							0, 0, 0, 1])
+
+	for poly in insideLittleTriangle:
+		poly.transform = translation*poly.transform
+		poly.points = [translation*P for P in poly.points]
+
+	if needToRotate:
+		#Need to flip around the width and the height of the rectangle
+		rectRotate90CCW(cuts, rectCorner, rect2h)
 
