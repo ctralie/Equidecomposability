@@ -24,14 +24,14 @@ class Display(object):
 
 	def repaint(self):
 		self.canvas.delete(ALL)
-		if len(self.cuts) == 0:
+		if True:
 			h = self.height
 			for P in self.points:
 				self.canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill="#000000")
 			for i in range(0, len(self.points)):
 				[P1, P2] = [self.points[i], self.points[(i+1)%len(self.points)]]
 				self.canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill="#0000FF")
-		else:
+		if len(self.cuts) > 0:
 			drawPolygonCuts(self.canvas, self.height, self.cuts, self.t)
 
 	def AnimatePieces(self):
@@ -56,13 +56,17 @@ class Display(object):
 			self.repaint()
 
 	def mouse2Clicked(self, event):
+		#Do the animation
 		if len(self.points) < 3:
 			return
 		self.cuts = []
 		self.cutPoints = []
 		[A, B, C] = self.points[0:3]
+		area = getPolygonArea([A, B, C])
+		height = 50
+		width = area/height
 		rectCorner = Point3D(10, 10, 0)
-		cutTriangleIntoRectangle(self.cuts, A, B, C, rectCorner, 0, 0, self.cutPoints, False)
+		cutTriangleIntoRectangle(self.cuts, A, B, C, rectCorner, width, height, self.cutPoints, True)
 		thread = Thread(target = self.AnimatePieces)
 		thread.start()
 
