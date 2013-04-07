@@ -1,7 +1,6 @@
-from Shapes3D import *
 from Primitives3D import *
 from Utilities2D import *
-from Beam3D import CCW2D
+import math
 
 class BiPolygonCut(object):
 	def __init__(self):
@@ -11,7 +10,7 @@ class BiPolygonCut(object):
 class PolygonCut(object):
 	def __init__(self):
 		self.transform = Matrix4()#Initialize to identity matrix
-		self.flag = false #Flag this polygon for special drawing (for debugging purposes)
+		self.flag = False #Flag this polygon for special drawing (for debugging purposes)
 		self.minX = float('inf')
 		self.maxX = float('-inf')
 		self.minY = float('inf')
@@ -31,7 +30,7 @@ class PolygonCut(object):
 				self.maxX = P.x
 			if P.y < self.minY:
 				self.minY = P.y
-			if P.y > self.maxY
+			if P.y > self.maxY:
 				self.maxY = P.y
 	
 	def boundingBoxIntersects(self, other):
@@ -100,7 +99,7 @@ def cutWithSegment(cuts, A, B):
 		index2 = -1#Index of second intersection in polygon
 		intersectP1 = None
 		intersectP2 = None
-		for k in range(0, len(cuts[i].points):
+		for k in range(0, len(cuts[i].points)):
 			P1 = cuts[i].points[k]
 			P2 = cuts[i].points[(k+1)%len(cuts[i].points)]
 			intersection = intersectSegments2D(A, B, P1, P2) #Allow endpoint intersections
@@ -133,7 +132,7 @@ def cutWithSegment(cuts, A, B):
 			index = index1
 			while True:
 				index = (index+1)%len(cuts[i].points)
-				cut1.points.append(cuts[i]->points[index])
+				cut1.points.append(cuts[i].points[index])
 				if index == index2:
 					break
 			cut1.points.append(P2)
@@ -143,10 +142,10 @@ def cutWithSegment(cuts, A, B):
 			index = index2
 			while True:
 				index = (index+1)%len(cuts[i].points)
-				cut2.points.append(cuts[i]->points[index])
+				cut2.points.append(cuts[i].points[index])
 				if index == index1:
 					break
-			cut22points.append(P1)
+			cut2.points.append(P1)
 
 			#Add the two new polygons to the list of cuts
 			cuts.append(cut1)
@@ -201,7 +200,7 @@ def cutVertically(cuts, A, w, h):
 	rightX = A.x + w*2
 	for poly in cuts:
 		inside = True
-		for P in poly.points
+		for P in poly.points:
 			if P.x > (rightX+EPS) or P.x < (leftX-EPS):
 				#print "Polygon %i point %i is at Y location %g outside of <%g, %g>\n\n"%(i, k, poly->points[k].y, bottomY, topY)
 				inside = False
@@ -232,7 +231,7 @@ def cutRectangleToCorrectProportions(cuts, A, width, height):
 #Allow some numerical tolerance for making this call
 def getCutsInsideTriangle(cuts, A, B, C, inside):
 	#Make sure points are in clockwise order
-	if CCW2D(A, B, C) < 1):
+	if CCW2D(A, B, C) < 1:
 		temp = A
 		A = C
 		C = temp
@@ -305,7 +304,7 @@ def cutRectangleIntoRectangle(cuts, rectCorner, rect1w, rect1h, rect2w, rect2h, 
 		print "ERROR: Unable to find point 'I' cutting rectangle into another rectangle"
 		return
 	I = Point3D(intersection.x, intersection.y, 0)
-	intersection = intersectSegments(B, H, C, D, True)
+	intersection = intersectSegments2D(B, H, C, D, True)
 	if not intersection:
 		print "ERROR: Unable to find point 'J' cutting rectangle into another rectangle"
 		return
@@ -319,7 +318,7 @@ def cutRectangleIntoRectangle(cuts, rectCorner, rect1w, rect1h, rect2w, rect2h, 
 	seg2P = H
 	cutWithSegment(cuts, seg1P, seg2P)
 
-	PLVector vGE = E - G
+	vGE = E - G
 	seg1P = Point3D(E.x+vGE.x, E.y, 0)
 	seg2P = G
 	cutWithSegment(cuts, seg1P, seg2P)
@@ -351,3 +350,194 @@ def cutRectangleIntoRectangle(cuts, rectCorner, rect1w, rect1h, rect2w, rect2h, 
 		#Need to flip around the width and the height of the rectangle
 		rectRotate90CCW(cuts, rectCorner, rect2h)
 
+#rectCorner is the bottom left corner of the target rectangle
+#rectw and recth are the width and height, respectively, of the target rectangle
+#cutToDimensions specifies whether the triangle should be cut to the dimensions of the
+#target rectangle, or if only the initial triangle to "natural" rectangle cut should be made
+def cutTriangleIntoRectangle(cuts, A, B, C, rectCorner, rectw, recth, cutPoints, cutToDimensions):
+	#STEP 1: Make sure the points are specified in clockwise order and
+	#fix them if this is not the case (this is important for step 3)
+	if (CCW2D(A, B, C) < 0):
+		temp = A
+		A = C
+		C = temp
+
+	#STEP 2: Cut the triangle into its "natural rectangle" by making 4 cuts
+	#Preliminary step: Find a vertex whose projection onto its adjacent
+	#segment is within the bounds of that segment that maximizes the minimum
+	#angle formed in the resulting two triangles
+	[PA, PB, PC] = [A, B, C]
+	AScore = triangleHalfCutScore(A, B, C)
+	BScore = triangleHalfCutScore(B, C, A)
+	CScore = triangleHalfCutScore(C, A, B)
+	score = -1
+	if AScore > BScore and AScore > CScore:
+		[PA, PB, PC] = [A, B, C]
+		score = AScore
+	elif BScore > AScore and BScore > CScore:
+		[PA, PB, PC] = [B, C, A]
+		score = BScore
+	else:
+		[PA, PB, PC] = [C, A, B]
+		score = CScore
+	if score < 0:
+		print "Error: Could not find a triangle vertex that projected onto the opposite edge"
+		return
+	
+	vBA = PA - PB
+	vBC = PC - PB
+	vBD = vBC.proj(vBA)
+	D = Point3D(PB.x+vBD.x, PB.y+vBD.y, 0)
+	vDA = PA - D
+	vDE = Vector3D(vDA.x*0.5, vDA.y*0.5, 0)
+	E = Point3D(D.x+vDE.x, D.y+vDE.y, 0)
+	dummy = Point3D(E.x+vBC.x, E.y+vBC.y, 0)
+	intersect = intersectSegments2D(PA, PC, E, dummy, False)
+	if not intersect:
+		print "ERROR: Could not find point 'F' in initial triangle cut"
+		return
+	F = Point3D(intersect.x, intersect.y, 0)
+	dummy = Point3D(E.x-vBC.x, E.y-vBC.y, 0)
+	intersect = intersectSegments2D(PA, PB, E, dummy, False)
+	if not intersect:
+		print "ERROR: Could not find point 'G' in initial triangle cut"
+		return
+	G = Point3D(intersect.x, intersect.y, 0)
+	#Now add the four initial polygons
+	#Upper left triangle
+	poly1 = PolygonCut()
+	for P in [F, PA, E]:
+		poly1.points.append(P)
+	#Rotate 180 degrees around point F
+	poly1.transform = Matrix4([-1, 0, 0, 2*F.x,
+								0, -1, 0, 2*F.y,
+								0, 0, 1, 0,
+								0, 0, 0, 1])
+	poly1.points = [poly1.transform*P for P in poly1.points]
+	cuts.append(poly1)
+
+	#Upper right triangle
+	poly2 = PolygonCut()
+	for P in [E, PA, G]:
+		poly2.points.append(P)
+	#Rotate 180 degrees around point G
+	poly2.transform = Matrix4([-1, 0, 0, 2*G.x,
+								0, -1, 0, 2*G.y,
+								0, 0, 1, 0,
+								0, 0, 0, 1])
+	poly2.points = [poly2.transform*P for P in poly2.points]
+	cuts.append(poly2)
+
+	#Lower trapezoid
+	poly3 = PolygonCut()
+	for P in [PC, F, G, PB]:
+		poly3.points.append(P)
+	cuts.append(poly3)
+
+	#STEP 3: Rotate the new rectangle so that it is axis-aligned, and
+	#translate it so that its lower left corner matches the lower left
+	#corner of the target polygon
+	vPCD = D - PC
+	vDE = E - D
+	vPCD.normalize()
+	vDE.normalize()
+	R = Matrix4( [  vPCD.x, vDE.x, 0, 0,
+					vPCD.y, vDE.y, 0, 0,
+					0, 0, 1, 0,
+					0, 0, 0, 1 ])
+	R = R.Inverse() #This matrix will rotate the proper amount around the origin
+	translation = Matrix4([ 1, 0, 0, cuts[2].points[0].x,
+							0, 1, 0, cuts[2].points[0].y,
+							0, 0, 1, 0,
+							0, 0, 0, 1])
+	rotateAxisAlign = (translation * R)*translation.Inverse()
+	#Finally, translate the rectangle so that its bottom left corner aligns
+	#with the bottom left corner of the target rectangle
+	offset = rectCorner - cuts[2].points[0]
+	translation = Matrix4([ 1, 0, 0, offset.x,
+							0, 1, 0, offset.y,
+							0, 0, 1, 0,
+							0, 0, 0, 1])
+	rotateAxisAlign = translation*rotateAxisAlign
+	#Now apply this matrix to every polygonal cut to align the rectangle
+	#with the target rectangle at the lower left corner
+	for cut in cuts:
+		cut.transform = rotateAxisAlign*cut.transform
+		cut.points = [rotateAxisAlign*P for P in cut.points]
+
+	#Determine the width and height of the rectangle, and cut it in half
+	#until width < 2*height AND height < 2*width
+	widthVector = cuts[2].points[3] - cuts[2].points[0]
+	width = widthVector.squaredMag()**0.5
+	heightVector = cuts[0].points[1] - cuts[0].points[2]
+	height = heightVector.squaredMag()**0.5
+	
+	if not cutToDimensions:
+		#Don't do any further cuts; just return the natural rectangle made
+		#from the first three cut pieces, along with the width and height
+		#of this rectangle by reference
+		return [width, height]
+
+	#Adjust the widths and heights of the target rectangle if necessary
+	[targetw, targeth] = [rectw, recth]
+	#TODO: This could be dangerous if either rectw or recth is close to 0
+	while targetw > 2*targeth:
+		targetw /= 2.0
+		targeth *= 2.0
+	while (targeth > 2*targetw):
+		targeth /= 2.0
+		targetw *= 2.0
+	
+	#Adjust the proportions of the new rectangle if necessary
+	[width, height] = cutRectangleToCorrectProportions(cuts, rectCorner, width, height)
+	#Cut the new rectangle into the (possibly adjusted) target rectangle
+	cutRectangleIntoRectangle(cuts, rectCorner, width, height, targetw, targeth, cutPoints)
+
+	#Now put the target rectangle back to its original proportions (if it had to be cut before)
+	while (targetw + EPS < rectw):
+		targetw *= 2
+		targeth /= 2
+		cutHorizontally(cuts, rectCorner, targetw, targeth)
+	while (targeth + EPS < recth):
+		targetw /= 2
+		targeth *= 2
+		cutVertically(cuts, rectCorner, targetw, targeth)
+	return [targetw, targeth]
+
+
+#t is the interpolation parameter that says how far along to slide the cut
+def drawPolygonCut(poly, t, height):
+	t = (t+t**0.5)/2
+	cosA = poly.transform.m[0]
+	sinA = poly.transform.m[4]
+	dx = poly.transform.m[3]*t
+	dy = poly.transform.m[7]*t
+	A = math.atan2(sinA, cosA)*t
+	[cosA, sinA] = [math.cos(A), math.sin(A)]
+	trans1 = Matrix4( [ cosA, -sinA, 0, dx,
+						sinA, cosA, 0, dy,
+						0, 0, 1, 0,
+						0, 0, 0, 1])
+	trans = trans1*(poly.transform.Inverse())
+	#glBegin(GL_LINE_LOOP);
+	#for (int k = 0; k < (int)poly->points.size(); k++) {
+	#	R3Point P(poly->points[k].x, poly->points[k].y, 0);
+	#	P = trans * P;
+	#	glVertex2f(P.X(), GLUTwindow_height-P.Y());
+	#}
+	#glEnd();
+
+def drawPolygonCuts(polygonCuts, t, height):
+	for poly in polygonCuts:
+		drawPolygonCut(poly, t, height)
+
+if __name__ == '__main__':
+	cuts = []
+	cutPoints = []
+	A = Point3D(-1, 0, 0)
+	B = Point3D(0, 1, 0)
+	C = Point3D(1, 0, 0)
+	rectCorner = Point3D(0, 0, 0)
+	rectw = 1
+	recth = 1
+	cutTriangleIntoRectangle(cuts, A, B, C, rectCorner, rectw, recth, cutPoints, True)
