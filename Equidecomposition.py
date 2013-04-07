@@ -506,7 +506,7 @@ def cutTriangleIntoRectangle(cuts, A, B, C, rectCorner, rectw, recth, cutPoints,
 
 
 #t is the interpolation parameter that says how far along to slide the cut
-def drawPolygonCut(poly, t, height):
+def drawPolygonCut(canvas, height, poly, t):
 	t = (t+t**0.5)/2
 	cosA = poly.transform.m[0]
 	sinA = poly.transform.m[4]
@@ -519,17 +519,15 @@ def drawPolygonCut(poly, t, height):
 						0, 0, 1, 0,
 						0, 0, 0, 1])
 	trans = trans1*(poly.transform.Inverse())
-	#glBegin(GL_LINE_LOOP);
-	#for (int k = 0; k < (int)poly->points.size(); k++) {
-	#	R3Point P(poly->points[k].x, poly->points[k].y, 0);
-	#	P = trans * P;
-	#	glVertex2f(P.X(), GLUTwindow_height-P.Y());
-	#}
-	#glEnd();
+	points = [trans*P for P in poly.points]
+	for i in range(0, len(points)):
+		[P1, P2] = [points[i], points[(i+1)%len(points)]]
+		#canvas.create_oval(P1.x-4, P1.y+4, P1.x+4, P1.y-4, fill="#000000")
+		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill="#0000FF")
 
-def drawPolygonCuts(polygonCuts, t, height):
+def drawPolygonCuts(canvas, height, polygonCuts, t):
 	for poly in polygonCuts:
-		drawPolygonCut(poly, t, height)
+		drawPolygonCut(canvas, height, poly, t)
 
 if __name__ == '__main__':
 	cuts = []
