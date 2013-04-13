@@ -2,11 +2,6 @@ from Primitives3D import *
 from Utilities2D import *
 import math
 
-class BiPolygonCut(object):
-	def __init__(self):
-		self.transform1 = Matrix4()
-		self.transform2 = Matrix4()
-
 class PolygonCut(object):
 	def __init__(self):
 		self.transform = Matrix4()#Initialize to identity matrix
@@ -57,7 +52,20 @@ class PolygonCut(object):
 		if (x1 >= xmin and x1 <= xmax and y2 >= ymin and y2 <= ymax):
 			return True
 		return False
+	
+	def getArea(self):
+		return getPolygonArea(self.points)
 
+
+class BiPolygonCut(PolygonCut):
+	#Just like PolygonCut but with a bit of extra information for debugging
+	#-transform represents the transform from the first polygon to the second polygon
+	#-transform1 represents the transform from the first polgon to the intermediate polygon
+	#-transform2 represents the transform from the the second polygon to the intermediate polygon
+	#Therefore, transform = transform2.Inverse()*transform1
+	def __init__(self):
+		self.transform1 = Matrix4()
+		self.transform2 = Matrix4()
 
 #Return the "score" of dropping a vertical line from point A to the
 #segment BC in the triangle ABC, where the "score" is higher if
@@ -354,6 +362,8 @@ def cutRectangleIntoRectangle(cuts, rectCorner, rect1w, rect1h, rect2w, rect2h, 
 #rectw and recth are the width and height, respectively, of the target rectangle
 #cutToDimensions specifies whether the triangle should be cut to the dimensions of the
 #target rectangle, or if only the initial triangle to "natural" rectangle cut should be made
+#Returns [width, height] of the cut (will be [rectw, recth] if cutToDimensions is True
+#but if cutToDimensions is false it will be the width and height of the "natural rectangle")
 def cutTriangleIntoRectangle(cuts, A, B, C, rectCorner, rectw, recth, cutPoints, cutToDimensions):
 	#STEP 1: Make sure the points are specified in clockwise order and
 	#fix them if this is not the case (this is important for step 3)
@@ -504,6 +514,43 @@ def cutTriangleIntoRectangle(cuts, A, B, C, rectCorner, rectw, recth, cutPoints,
 		cutVertically(cuts, rectCorner, targetw, targeth)
 	return [targetw, targeth]
 
+#cuts1 and cuts2 are the PolygonCuts to get from the triangles to the intermediate square
+#cuts are the BiPolygonCuts to get from the two triangles to each other
+def cutTriangleIntoTriangle(cuts1, cuts2, cuts, A, B, C, D, E, F):
+	area = getPolygonArea([A, B, C])
+	area2 = getPolygonArea([D, E, F])
+	areaDiff = abs(area - area2)
+	if  areaDiff > EPS:
+		print "ERROR: Cannot cut triangles into each other with a nonzero difference of area of %g"%areaDiff
+		return
+	squareDim = math.sqrt(area)
+	squareCorner = Point3D(0, 0, 0)
+	cutPoints1 = []
+	cutTriangleIntoRectangle(cuts1, A, B, C, squareCorner, squareDim, squareDim, cutPoints1, True)
+	cutPoints2 = []
+	cutTriangleIntoRectangle(cuts2, D, E, F, squareCorner, squareDim, squareDim, cutPoints2, True)
+	#Now check every cut against every other cut (TODO: Speed this up with KD trees or something?)
+	for cut1 in cuts1:
+		for cut2 in cuts2:
+			intersection = clipSutherlandHodgman(cut1.points, cut2.points)
+			if len(intersection) > 0:
+				trans1 = cut1.transform
+				trans2Inv = cut2.transform.Inverse()
+				newCut = BiPolygonCut()
+				newCut.points = intersection
+				newCut.points = [trans2Inv*P for P in newCut.points]
+				newCut.transform = trans2Inv*trans1
+				newCut.transform1 = cut1.transform
+				newCut.transform2 = cut2.transform
+				cuts.append(newCut)
+				print "Found intersection of length %i"%len(intersection)
+
+def drawPolygon2DTk(canvas, poly):
+	for P in poly:
+		canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill="#000000")
+	for i in range(0, len(poly)):
+		[P1, P2] = [poly[i], poly[(i+1)%len(poly)]]
+		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill="#0000FF")
 
 #t is the interpolation parameter that says how far along to slide the cut
 def drawPolygonCut(canvas, height, poly, t):
@@ -517,7 +564,7 @@ def drawPolygonCut(canvas, height, poly, t):
 	trans1 = Matrix4( [ cosA, -sinA, 0, dx,
 						sinA, cosA, 0, dy,
 						0, 0, 1, 0,
-						0, 0, 0, 1])
+						0, 0, 0, 1] )
 	trans = trans1*(poly.transform.Inverse())
 	points = [trans*P for P in poly.points]
 	for i in range(0, len(points)):
@@ -528,6 +575,9 @@ def drawPolygonCut(canvas, height, poly, t):
 def drawPolygonCuts(canvas, height, polygonCuts, t):
 	for poly in polygonCuts:
 		drawPolygonCut(canvas, height, poly, t)
+
+def getAreaOfCuts(cuts):
+	return sum([cut.getArea() for cut in cuts])
 
 if __name__ == '__main__':
 	cuts = []
