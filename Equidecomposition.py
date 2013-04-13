@@ -524,7 +524,7 @@ def cutTriangleIntoTriangle(cuts1, cuts2, cuts, A, B, C, D, E, F):
 		print "ERROR: Cannot cut triangles into each other with a nonzero difference of area of %g"%areaDiff
 		return
 	squareDim = math.sqrt(area)
-	squareCorner = Point3D(0, 0, 0)
+	squareCorner = Point3D(50, 50, 0)
 	cutPoints1 = []
 	cutTriangleIntoRectangle(cuts1, A, B, C, squareCorner, squareDim, squareDim, cutPoints1, True)
 	cutPoints2 = []
@@ -545,15 +545,16 @@ def cutTriangleIntoTriangle(cuts1, cuts2, cuts, A, B, C, D, E, F):
 				cuts.append(newCut)
 				print "Found intersection of length %i"%len(intersection)
 
-def drawPolygon2DTk(canvas, poly):
-	for P in poly:
-		canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill="#000000")
+def drawPolygon2DTk(canvas, poly, color = "#0000FF", drawVertices = True):
+	if drawVertices:
+		for P in poly:
+			canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill="#000000")
 	for i in range(0, len(poly)):
 		[P1, P2] = [poly[i], poly[(i+1)%len(poly)]]
-		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill="#0000FF")
+		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill=color)
 
 #t is the interpolation parameter that says how far along to slide the cut
-def drawPolygonCut(canvas, height, poly, t):
+def drawPolygonCut(canvas, height, poly, t, color = "#0000FF"):
 	t = (t+t**0.5)/2
 	cosA = poly.transform.m[0]
 	sinA = poly.transform.m[4]
@@ -570,11 +571,11 @@ def drawPolygonCut(canvas, height, poly, t):
 	for i in range(0, len(points)):
 		[P1, P2] = [points[i], points[(i+1)%len(points)]]
 		#canvas.create_oval(P1.x-4, P1.y+4, P1.x+4, P1.y-4, fill="#000000")
-		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill="#0000FF")
+		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill=color)
 
-def drawPolygonCuts(canvas, height, polygonCuts, t):
+def drawPolygonCuts(canvas, height, polygonCuts, t, color = "#0000FF"):
 	for poly in polygonCuts:
-		drawPolygonCut(canvas, height, poly, t)
+		drawPolygonCut(canvas, height, poly, t, color)
 
 def getAreaOfCuts(cuts):
 	return sum([cut.getArea() for cut in cuts])

@@ -6,12 +6,7 @@ from threading import Thread
 
 class Display(object):
 	def __init__(self, pw = 800, ph = 600):
-		self.tri1Points = []
-		self.tri2Points = []
-		self.cuts = []
-		self.cuts1 = []
-		self.cuts2 = []
-		self.selectingTri1 = True
+		self.ClearAll()
 		
 		self.t = 0 #Animation parameter
 		[self.width, self.height] = [pw, ph]
@@ -19,7 +14,7 @@ class Display(object):
 		self.root.title('Cutting Triangles Into Triangles')
 	
 		self.canvas = Canvas(self.root, width=pw, height=ph)
-		self.canvas.grid(row=0, column=0, rowspan = 3)
+		self.canvas.grid(row=0, column=0, rowspan = 4)
 		self.canvas.bind("<Button-1>", self.mouseClicked)
 		self.canvas.bind("<Button-2>", self.mouse2Clicked)
 		self.canvas.bind("<Button-3>", self.mouse3Clicked)
@@ -30,6 +25,8 @@ class Display(object):
 		selTri2Button.grid(row=1, column=1)
 		cutButton = Button(self.root, text="Do Cut", command=self.doTriangleCuts)
 		cutButton.grid(row=2, column=1)
+		resetButton = Button(self.root, text = "Reset", command=self.Reset)
+		resetButton.grid(row=3, column=1)
 		
 		self.repaint()
 		self.root.mainloop()
@@ -40,17 +37,37 @@ class Display(object):
 	def selectTriangle2(self):
 		self.selectingTri1 = False
 
+	def ClearAll(self):
+		self.cuts = []
+		self.cuts1 = []
+		self.cuts2 = []
+		self.selectingTri1 = True
+		self.tri1Points = []
+		self.tri2Points = []
+		#Debugging points for checking polygon intersections
+		self.selPoints1 = []
+		self.selPoints2 = []
+		self.intPoints = []
+	
+	def Reset(self):
+		self.ClearAll()
+		self.repaint()
+
 	def repaint(self):
 		self.canvas.delete(ALL)
-		if len(self.cuts) == 0:
+		if len(self.cuts1) == 0:
 			drawPolygon2DTk(self.canvas, self.tri1Points)
 			drawPolygon2DTk(self.canvas, self.tri2Points)
 		else:
 			drawPolygonCuts(self.canvas, self.height, self.cuts, self.t)
-			drawPolygonCuts(self.canvas, self.height, self.cuts1, self.t)
-			drawPolygonCuts(self.canvas, self.height, self.cuts2, self.t)
-			if t >= 1:
+			drawPolygonCuts(self.canvas, self.height, self.cuts1, self.t, "#0000FF")
+			drawPolygonCuts(self.canvas, self.height, self.cuts2, self.t, "#FF0000")
+			if self.t >= 1:
 				drawPolygonCuts(self.canvas, self.height, self.cuts, 0)
+		#Draw selected debugging polygons
+		drawPolygon2DTk(self.canvas, self.selPoints1, "#00FFFF")
+		drawPolygon2DTk(self.canvas, self.selPoints2, "#FFFF00")
+		drawPolygon2DTk(self.canvas, self.intPoints, "#FF00FF")
 
 	def AnimatePieces(self):
 		#Now animate
@@ -75,6 +92,31 @@ class Display(object):
 		canvas = event.widget
 		x = canvas.canvasx(event.x)
 		y = canvas.canvasy(event.y)
+		cut1 = None
+		cut2 = None
+		P = Point3D(x, y, 0)
+		print P
+		for cut in self.cuts1:
+			if pointInsideConvexPolygon2D(cut.points, P):
+				cut1 = cut
+				break
+		if not cut1:
+			print "No cut found from triangle 1 that contains mouse click point"
+			return
+		print "Found cut 1"
+		for P in cut1.points:
+			print P
+		for cut in self.cuts2:
+			if pointInsideConvexPolygon2D(cut.points, P):
+				cut2 = cut
+				break
+		if not cut2:
+			print "No cut found from triangle 2 that contains mouse click point"
+			return		
+		self.selPoints1 = cut1.points
+		self.selPoints2 = cut2.points
+		self.intPoints = clipSutherlandHodgman(cut1.points, cut2.point)
+		self.repaint()
 
 	def mouse3Clicked(self, event):
 		points = self.tri1Points
