@@ -24,15 +24,12 @@ class Display(object):
 
 	def repaint(self):
 		self.canvas.delete(ALL)
-		if True:
-			h = self.height
-			for P in self.points:
-				self.canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill="#000000")
-			for i in range(0, len(self.points)):
-				[P1, P2] = [self.points[i], self.points[(i+1)%len(self.points)]]
-				self.canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill="#0000FF")
-		if len(self.cuts) > 0:
+		if len(self.cuts) == 0:
+			drawPolygon2DTk(self.canvas, self.points)
+		else:
 			drawPolygonCuts(self.canvas, self.height, self.cuts, self.t)
+			if self.t >= 1:
+				drawPolygonCuts(self.canvas, self.height, self.cuts, 0)
 
 	def AnimatePieces(self):
 		#Now animate
@@ -67,6 +64,8 @@ class Display(object):
 		width = area/height
 		rectCorner = Point3D(10, 10, 0)
 		cutTriangleIntoRectangle(self.cuts, A, B, C, rectCorner, width, height, self.cutPoints, True)
+		print "Triangle area: %g"%area
+		print "Cuts area: %g"%getAreaOfCuts(self.cuts)
 		thread = Thread(target = self.AnimatePieces)
 		thread.start()
 
