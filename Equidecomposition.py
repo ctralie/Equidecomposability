@@ -543,12 +543,12 @@ def cutTriangleIntoTriangle(cuts1, cuts2, cuts, A, B, C, D, E, F):
 				newCut.transform1 = cut1.transform
 				newCut.transform2 = cut2.transform
 				cuts.append(newCut)
-				print "Found intersection of length %i"%len(intersection)
+				#print "Found intersection of length %i"%len(intersection)
 
 def drawPolygon2DTk(canvas, poly, color = "#0000FF", drawVertices = True):
 	if drawVertices:
 		for P in poly:
-			canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill="#000000")
+			canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill=color)
 	for i in range(0, len(poly)):
 		[P1, P2] = [poly[i], poly[(i+1)%len(poly)]]
 		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill=color)
