@@ -545,13 +545,20 @@ def cutTriangleIntoTriangle(cuts1, cuts2, cuts, A, B, C, D, E, F):
 				cuts.append(newCut)
 				#print "Found intersection of length %i"%len(intersection)
 
-def drawPolygon2DTk(canvas, poly, color = "#0000FF", drawVertices = True):
+def drawPolygon2DTk(canvas, poly, outlineColor = "#0000FF", fillColor = "#FFFFFF", drawVertices = True):
+	if len(poly) < 3:
+		for i in range(0, len(poly)):
+			[P1, P2] = [poly[i], poly[(i+1)%len(poly)]]
+			canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill=outlineColor)
+	else:
+		coordsList = []
+		for P in poly:
+			coordsList.append(P.x)
+			coordsList.append(P.y)
+		canvas.create_polygon(coordsList, outline = outlineColor, fill = fillColor)
 	if drawVertices:
 		for P in poly:
-			canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill=color)
-	for i in range(0, len(poly)):
-		[P1, P2] = [poly[i], poly[(i+1)%len(poly)]]
-		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill=color)
+			canvas.create_oval(P.x-4, P.y+4, P.x+4, P.y-4, fill=outlineColor)
 
 #t is the interpolation parameter that says how far along to slide the cut
 def drawPolygonCut(canvas, height, poly, t, color = "#0000FF"):
@@ -568,10 +575,7 @@ def drawPolygonCut(canvas, height, poly, t, color = "#0000FF"):
 						0, 0, 0, 1] )
 	trans = trans1*(poly.transform.Inverse())
 	points = [trans*P for P in poly.points]
-	for i in range(0, len(points)):
-		[P1, P2] = [points[i], points[(i+1)%len(points)]]
-		#canvas.create_oval(P1.x-4, P1.y+4, P1.x+4, P1.y-4, fill="#000000")
-		canvas.create_line(P1.x, P1.y, P2.x, P2.y, fill=color)
+	drawPolygon2DTk(canvas, points, color, drawVertices = False)
 
 def drawPolygonCuts(canvas, height, polygonCuts, t, color = "#0000FF"):
 	for poly in polygonCuts:
