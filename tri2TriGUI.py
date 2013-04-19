@@ -14,7 +14,7 @@ class Display(object):
 		self.root.title('Cutting Triangles Into Triangles')
 	
 		self.canvas = Canvas(self.root, width=pw, height=ph)
-		self.canvas.grid(row=0, column=0, rowspan = 4)
+		self.canvas.grid(row=0, column=0, rowspan = 5)
 		self.canvas.bind("<Button-1>", self.mouseClicked)
 		self.canvas.bind("<Button-2>", self.mouse2Clicked)
 		self.canvas.bind("<Button-3>", self.mouse3Clicked)
@@ -25,8 +25,10 @@ class Display(object):
 		selTri2Button.grid(row=1, column=1)
 		cutButton = Button(self.root, text="Do Cut", command=self.doTriangleCuts)
 		cutButton.grid(row=2, column=1)
+		animateButton = Button(self.root, text = "Animate", command=self.doAnimation)
+		animateButton.grid(row=3, column=1)
 		resetButton = Button(self.root, text = "Reset", command=self.Reset)
-		resetButton.grid(row=3, column=1)
+		resetButton.grid(row=4, column=1)
 		
 		self.repaint()
 		self.root.mainloop()
@@ -150,10 +152,16 @@ class Display(object):
 		area2 = getPolygonArea([D, E, F])
 		print "Triangle Area 1 = %g\nRescaled Triangle Area 2 = %g"%(area1, area2)
 		cutTriangleIntoTriangle(self.cuts1, self.cuts2, self.cuts, A, B, C, D, E, F)
+		print "Area of cuts = %g"%getAreaOfCuts(self.cuts)
 		print "len(cuts1) = %i, len(cuts2) = %i, len(cuts) = %i"%(len(self.cuts1), len(self.cuts2), len(self.cuts))
 		#Do the animation
-		thread = Thread(target = self.AnimatePieces)
-		thread.start()
+		self.doAnimation()
+	
+	def doAnimation(self):
+		if len(self.cuts) > 0:
+			self.t = 0
+			thread = Thread(target = self.AnimatePieces)
+			thread.start()
 
 if __name__ == '__main__':
 	display = Display()
