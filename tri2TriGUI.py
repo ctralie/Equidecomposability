@@ -60,14 +60,16 @@ class Display(object):
 			drawPolygon2DTk(self.canvas, self.tri2Points)
 		else:
 			drawPolygonCuts(self.canvas, self.height, self.cuts, self.t)
-			drawPolygonCuts(self.canvas, self.height, self.cuts1, self.t, "#0000FF")
-			drawPolygonCuts(self.canvas, self.height, self.cuts2, self.t, "#FF0000")
+			#drawPolygonCuts(self.canvas, self.height, self.cuts1, self.t, "#0000FF")
+			#drawPolygonCuts(self.canvas, self.height, self.cuts2, self.t, "#FF0000")
 			if self.t >= 1:
 				drawPolygonCuts(self.canvas, self.height, self.cuts, 0)
+				#drawPolygonCuts(self.canvas, self.height, self.cuts1, 0, "#0000FF")
+				#drawPolygonCuts(self.canvas, self.height, self.cuts2, 0, "#FF0000")
 		#Draw selected debugging polygons
 		drawPolygon2DTk(self.canvas, self.selPoints1, "#00FFFF")
-		drawPolygon2DTk(self.canvas, self.selPoints2, "#FFFF00")
-		drawPolygon2DTk(self.canvas, self.intPoints, "#FF00FF")
+		drawPolygon2DTk(self.canvas, self.selPoints2, "#FF00FF")
+		drawPolygon2DTk(self.canvas, self.intPoints, "#FFFF00")
 
 	def AnimatePieces(self):
 		#Now animate
@@ -95,7 +97,9 @@ class Display(object):
 		cut1 = None
 		cut2 = None
 		P = Point3D(x, y, 0)
-		print P
+		#if len(self.tri1Points) >= 3:
+		#	[A, B, C] = self.tri1Points[0:3]
+		#	print pointInsideConvexPolygon2D([A, B, C], P);
 		for cut in self.cuts1:
 			if pointInsideConvexPolygon2D(cut.points, P):
 				cut1 = cut
@@ -103,19 +107,18 @@ class Display(object):
 		if not cut1:
 			print "No cut found from triangle 1 that contains mouse click point"
 			return
-		print "Found cut 1"
-		for P in cut1.points:
-			print P
 		for cut in self.cuts2:
 			if pointInsideConvexPolygon2D(cut.points, P):
 				cut2 = cut
 				break
 		if not cut2:
 			print "No cut found from triangle 2 that contains mouse click point"
-			return		
+			return
 		self.selPoints1 = cut1.points
 		self.selPoints2 = cut2.points
-		self.intPoints = clipSutherlandHodgman(cut1.points, cut2.point)
+		self.intPoints = clipSutherlandHodgman(cut1.points, cut2.points)
+		#printPointsList(self.selPoints1, "Points1")
+		#printPointsList(self.selPoints2, "Points2")
 		self.repaint()
 
 	def mouse3Clicked(self, event):
