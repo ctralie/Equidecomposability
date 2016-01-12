@@ -1,3 +1,5 @@
+import sys
+sys.path.append('G-RFLCT')
 from Primitives3D import *
 from Equidecomposition import *
 from Tkinter import *

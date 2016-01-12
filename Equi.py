@@ -1,3 +1,5 @@
+import sys
+sys.path.append('G-RFLCT')
 from sys import argv
 from Shapes3D import *
 from Primitives3D import *
